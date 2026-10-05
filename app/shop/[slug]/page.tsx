@@ -4,17 +4,7 @@ import { db } from "@/lib/db";
 import { formatNaira } from "@/lib/utils";
 import AddToCartButton from "@/components/AddToCartButton";
 
-export async function generateStaticParams() {
-  const products = await db.product.findMany({
-    select: {
-      slug: true,
-    },
-  });
-
-  return products.map((product) => ({
-    slug: product.slug,
-  }));
-}
+export const dynamic = "force-dynamic";
 
 export default async function ProductPage({
   params,

@@ -3,6 +3,8 @@ import ProductCard from "@/components/ProductCard";
 import Newsletter from "@/components/Newsletter";
 import { getFeaturedProducts } from "@/lib/products";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const featured = await getFeaturedProducts(4);
 
