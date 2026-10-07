@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import styles from "./page.module.css";
 
 function formatNaira(amount: number) {
   return new Intl.NumberFormat("en-NG", {
@@ -23,50 +25,38 @@ function formatDate(date: Date) {
 function getStatusClass(status: string) {
   switch (status.toUpperCase()) {
     case "PAID":
-      return "admin-status admin-status-paid";
+      return `${styles.status} ${styles.statusPaid}`;
 
     case "PENDING":
-      return "admin-status admin-status-pending";
+      return `${styles.status} ${styles.statusPending}`;
 
     case "PROCESSING":
-      return "admin-status admin-status-processing";
+      return `${styles.status} ${styles.statusProcessing}`;
 
     case "SHIPPED":
-      return "admin-status admin-status-shipped";
+      return `${styles.status} ${styles.statusShipped}`;
 
     case "DELIVERED":
-      return "admin-status admin-status-delivered";
+      return `${styles.status} ${styles.statusDelivered}`;
 
     case "CANCELLED":
-      return "admin-status admin-status-cancelled";
+      return `${styles.status} ${styles.statusCancelled}`;
 
     default:
-      return "admin-status";
+      return styles.status;
   }
 }
 
 export default async function AdminPage() {
-  // ----------------------------------------
-  // 1. Check authentication
-  // ----------------------------------------
-
   const session = await getSession();
 
   if (!session) {
     redirect("/login");
   }
 
-  // ----------------------------------------
-  // 2. Check admin permission
-  // ----------------------------------------
-
   if (session.role !== "ADMIN") {
     redirect("/dashboard");
   }
-
-  // ----------------------------------------
-  // 3. Get dashboard data
-  // ----------------------------------------
 
   const [
     revenueResult,
@@ -77,7 +67,6 @@ export default async function AdminPage() {
     recentOrders,
     lowStockProducts,
   ] = await Promise.all([
-    // Revenue from paid orders only
     db.order.aggregate({
       _sum: {
         total: true,
@@ -87,32 +76,27 @@ export default async function AdminPage() {
       },
     }),
 
-    // Total orders
     db.order.count(),
 
-    // Customers only
     db.user.count({
       where: {
         role: "CUSTOMER",
       },
     }),
 
-    // Products
     db.product.count(),
 
-    // Pending orders
     db.order.count({
       where: {
         status: "PENDING",
       },
     }),
 
-    // Recent orders
     db.order.findMany({
       orderBy: {
         createdAt: "desc",
       },
-      take: 10,
+      take: 8,
       select: {
         id: true,
         customer: true,
@@ -123,7 +107,6 @@ export default async function AdminPage() {
       },
     }),
 
-    // Products with 5 or fewer items
     db.product.findMany({
       where: {
         stock: {
@@ -133,7 +116,7 @@ export default async function AdminPage() {
       orderBy: {
         stock: "asc",
       },
-      take: 10,
+      take: 6,
       select: {
         id: true,
         name: true,
@@ -146,24 +129,14 @@ export default async function AdminPage() {
 
   const revenue = revenueResult._sum.total ?? 0;
 
-  // ----------------------------------------
-  // 4. Dashboard
-  // ----------------------------------------
-
   return (
-    <div className="admin-page">
-
-      {/* ================================
-          ADMIN HEADER
-      ================================= */}
-
-      <section className="admin-header">
-        <div className="container">
-
-          <div className="admin-header-content">
-
+    <main className={styles.page}>
+      {/* HERO */}
+      <section className={styles.hero}>
+        <div className={styles.container}>
+          <div className={styles.heroInner}>
             <div>
-              <span className="eyebrow">
+              <span className={styles.eyebrow}>
                 Administration
               </span>
 
@@ -172,525 +145,462 @@ export default async function AdminPage() {
               </h1>
 
               <p>
-                Manage Simplyire Essentials
-                from one place.
+                Manage your Simplyire Essentials
+                store from one place.
               </p>
             </div>
 
-            <div className="admin-header-badge">
-              <span>ADMIN</span>
+            <div className={styles.adminBadge}>
+              <span className={styles.badgeDot} />
+              ADMIN
             </div>
-
           </div>
-
         </div>
       </section>
 
-
-      {/* ================================
-          STATISTICS
-      ================================= */}
-
-      <section className="section container">
-
-        <div className="admin-stats-grid">
-
-          {/* Revenue */}
-
-          <div className="admin-stat-card">
-
-            <div className="admin-stat-icon">
-              ₦
-            </div>
-
-            <div>
-              <span>
-                Total Revenue
-              </span>
-
-              <strong>
-                {formatNaira(revenue)}
-              </strong>
-
-              <p>
-                From paid orders
-              </p>
-            </div>
-
-          </div>
-
-
-          {/* Orders */}
-
-          <div className="admin-stat-card">
-
-            <div className="admin-stat-icon">
-              🛒
-            </div>
-
-            <div>
-              <span>
-                Total Orders
-              </span>
-
-              <strong>
-                {totalOrders}
-              </strong>
-
-              <p>
-                {pendingOrders} pending
-              </p>
-            </div>
-
-          </div>
-
-
-          {/* Customers */}
-
-          <div className="admin-stat-card">
-
-            <div className="admin-stat-icon">
-              👥
-            </div>
-
-            <div>
-              <span>
-                Customers
-              </span>
-
-              <strong>
-                {totalCustomers}
-              </strong>
-
-              <p>
-                Registered customers
-              </p>
-            </div>
-
-          </div>
-
-
-          {/* Products */}
-
-          <div className="admin-stat-card">
-
-            <div className="admin-stat-icon">
-              📦
-            </div>
-
-            <div>
-              <span>
-                Products
-              </span>
-
-              <strong>
-                {totalProducts}
-              </strong>
-
-              <p>
-                Products in catalog
-              </p>
-            </div>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      {/* ================================
-          MAIN CONTENT
-      ================================= */}
-
-      <section className="section container">
-
-        <div className="admin-content-grid">
-
-
-          {/* ============================
-              RECENT ORDERS
-          ============================= */}
-
-          <div className="admin-panel">
-
-            <div className="admin-panel-header">
-
-              <div>
-
-                <span className="eyebrow">
-                  Sales
-                </span>
-
-                <h2>
-                  Recent Orders
-                </h2>
-
-              </div>
-
-              <a
-                href="/admin/orders"
-                className="admin-panel-link"
+      {/* STATS */}
+      <section className={styles.statsSection}>
+        <div className={styles.container}>
+          <div className={styles.statsGrid}>
+            <div className={styles.statCard}>
+              <div
+                className={`${styles.statIcon} ${styles.iconRevenue}`}
               >
-                View all →
-              </a>
-
-            </div>
-
-
-            {recentOrders.length === 0 ? (
-
-              <div className="admin-empty">
-
-                <span>
-                  🛒
-                </span>
-
-                <h3>
-                  No orders yet
-                </h3>
-
-                <p>
-                  Customer orders will
-                  appear here.
-                </p>
-
+                ₦
               </div>
 
-            ) : (
+              <div className={styles.statContent}>
+                <span>Total Revenue</span>
+                <strong>
+                  {formatNaira(revenue)}
+                </strong>
+                <small>
+                  From paid orders
+                </small>
+              </div>
+            </div>
 
-              <div className="admin-table-wrapper">
+            <div className={styles.statCard}>
+              <div
+                className={`${styles.statIcon} ${styles.iconOrders}`}
+              >
+                🛒
+              </div>
 
-                <table className="admin-table">
+              <div className={styles.statContent}>
+                <span>Total Orders</span>
+                <strong>{totalOrders}</strong>
+                <small>
+                  {pendingOrders} pending
+                </small>
+              </div>
+            </div>
 
-                  <thead>
+            <div className={styles.statCard}>
+              <div
+                className={`${styles.statIcon} ${styles.iconCustomers}`}
+              >
+                👥
+              </div>
 
-                    <tr>
+              <div className={styles.statContent}>
+                <span>Customers</span>
+                <strong>{totalCustomers}</strong>
+                <small>
+                  Registered customers
+                </small>
+              </div>
+            </div>
 
-                      <th>
-                        Customer
-                      </th>
+            <div className={styles.statCard}>
+              <div
+                className={`${styles.statIcon} ${styles.iconProducts}`}
+              >
+                📦
+              </div>
 
-                      <th>
-                        Total
-                      </th>
+              <div className={styles.statContent}>
+                <span>Products</span>
+                <strong>{totalProducts}</strong>
+                <small>
+                  Products in catalog
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-                      <th>
-                        Status
-                      </th>
+      {/* MAIN CONTENT */}
+      <section className={styles.contentSection}>
+        <div className={styles.container}>
+          <div className={styles.contentGrid}>
+            {/* RECENT ORDERS */}
+            <div className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <div>
+                  <span className={styles.panelEyebrow}>
+                    Sales
+                  </span>
 
-                      <th>
-                        Date
-                      </th>
+                  <h2>Recent Orders</h2>
 
-                    </tr>
+                  <p>
+                    Your latest customer
+                    orders.
+                  </p>
+                </div>
 
-                  </thead>
+                <Link
+                  href="/admin/orders"
+                  className={styles.panelLink}
+                >
+                  View all →
+                </Link>
+              </div>
 
-                  <tbody>
+              {recentOrders.length === 0 ? (
+                <div className={styles.empty}>
+                  <div className={styles.emptyIcon}>
+                    🛒
+                  </div>
 
-                    {recentOrders.map(
-                      (order) => (
+                  <h3>No orders yet</h3>
 
-                        <tr key={order.id}>
+                  <p>
+                    Customer orders will
+                    appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className={styles.tableWrapper}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Customer</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                      </tr>
+                    </thead>
 
-                          <td>
+                    <tbody>
+                      {recentOrders.map(
+                        (order) => (
+                          <tr key={order.id}>
+                            <td>
+                              <div
+                                className={
+                                  styles.customer
+                                }
+                              >
+                                <div
+                                  className={
+                                    styles.avatar
+                                  }
+                                >
+                                  {order.customer
+                                    .charAt(
+                                      0
+                                    )
+                                    .toUpperCase()}
+                                </div>
 
-                            <div className="admin-customer">
+                                <div>
+                                  <strong>
+                                    {
+                                      order.customer
+                                    }
+                                  </strong>
 
+                                  <span>
+                                    {
+                                      order.email
+                                    }
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td>
                               <strong>
-                                {order.customer}
+                                {formatNaira(
+                                  order.total
+                                )}
                               </strong>
+                            </td>
 
-                              <span>
-                                {order.email}
+                            <td>
+                              <span
+                                className={getStatusClass(
+                                  order.status
+                                )}
+                              >
+                                {order.status}
                               </span>
+                            </td>
 
-                            </div>
-
-                          </td>
-
-
-                          <td>
-
-                            <strong>
-                              {formatNaira(
-                                order.total
-                              )}
-                            </strong>
-
-                          </td>
-
-
-                          <td>
-
-                            <span
-                              className={getStatusClass(
-                                order.status
-                              )}
-                            >
-                              {order.status}
-                            </span>
-
-                          </td>
-
-
-                          <td>
-                            {formatDate(
-                              order.createdAt
-                            )}
-                          </td>
-
-                        </tr>
-
-                      )
-                    )}
-
-                  </tbody>
-
-                </table>
-
-              </div>
-
-            )}
-
-          </div>
-
-
-          {/* ============================
-              LOW STOCK
-          ============================= */}
-
-          <div className="admin-panel">
-
-            <div className="admin-panel-header">
-
-              <div>
-
-                <span className="eyebrow">
-                  Inventory
-                </span>
-
-                <h2>
-                  Low Stock
-                </h2>
-
-              </div>
-
-              <a
-                href="/admin/products"
-                className="admin-panel-link"
-              >
-                Products →
-              </a>
-
+                            <td>
+                              <span
+                                className={
+                                  styles.date
+                                }
+                              >
+                                {formatDate(
+                                  order.createdAt
+                                )}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
+            {/* LOW STOCK */}
+            <div className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <div>
+                  <span className={styles.panelEyebrow}>
+                    Inventory
+                  </span>
 
-            {lowStockProducts.length === 0 ? (
+                  <h2>Low Stock</h2>
 
-              <div className="admin-empty">
+                  <p>
+                    Products that need
+                    attention.
+                  </p>
+                </div>
 
-                <span>
-                  ✅
-                </span>
-
-                <h3>
-                  Stock looks good
-                </h3>
-
-                <p>
-                  No products are running low.
-                </p>
-
+                <Link
+                  href="/admin/products"
+                  className={styles.panelLink}
+                >
+                  Products →
+                </Link>
               </div>
 
-            ) : (
+              {lowStockProducts.length ===
+              0 ? (
+                <div className={styles.empty}>
+                  <div className={styles.emptyIcon}>
+                    ✅
+                  </div>
 
-              <div className="low-stock-list">
+                  <h3>Stock looks good</h3>
 
-                {lowStockProducts.map(
-                  (product) => (
-
-                    <div
-                      className="low-stock-item"
-                      key={product.id}
-                    >
-
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                      />
-
-                      <div className="low-stock-info">
-
-                        <strong>
-                          {product.name}
-                        </strong>
-
-                        <span>
-                          {formatNaira(
-                            product.price
-                          )}
-                        </span>
-
-                      </div>
-
+                  <p>
+                    No products are
+                    running low.
+                  </p>
+                </div>
+              ) : (
+                <div className={styles.stockList}>
+                  {lowStockProducts.map(
+                    (product) => (
                       <div
                         className={
-                          product.stock <= 2
-                            ? "stock-danger"
-                            : "stock-warning"
+                          styles.stockItem
                         }
+                        key={product.id}
                       >
-                        {product.stock} left
+                        <img
+                          src={product.image}
+                          alt={
+                            product.name
+                          }
+                        />
+
+                        <div
+                          className={
+                            styles.stockInfo
+                          }
+                        >
+                          <strong>
+                            {product.name}
+                          </strong>
+
+                          <span>
+                            {formatNaira(
+                              product.price
+                            )}
+                          </span>
+                        </div>
+
+                        <div
+                          className={
+                            product.stock <= 2
+                              ? styles.stockDanger
+                              : styles.stockWarning
+                          }
+                        >
+                          {product.stock} left
+                        </div>
                       </div>
-
-                    </div>
-
-                  )
-                )}
-
-              </div>
-
-            )}
-
+                    )
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
-        </div>
+          {/* QUICK ACTIONS */}
+          <div className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <span
+                  className={
+                    styles.panelEyebrow
+                  }
+                >
+                  Management
+                </span>
 
-      </section>
+                <h2>Quick Actions</h2>
 
-
-      {/* ================================
-          QUICK ACTIONS
-      ================================= */}
-
-      <section className="section container">
-
-        <div className="admin-panel">
-
-          <div className="admin-panel-header">
-
-            <div>
-
-              <span className="eyebrow">
-                Management
-              </span>
-
-              <h2>
-                Quick Actions
-              </h2>
-
+                <p>
+                  Jump directly to the
+                  section you need.
+                </p>
+              </div>
             </div>
 
+            <div className={styles.actionsGrid}>
+              <Link
+                href="/admin/orders"
+                className={styles.actionCard}
+              >
+                <div
+                  className={
+                    styles.actionIcon
+                  }
+                >
+                  🛒
+                </div>
+
+                <div>
+                  <strong>
+                    Manage Orders
+                  </strong>
+
+                  <span>
+                    View and update
+                    customer orders.
+                  </span>
+                </div>
+
+                <span
+                  className={
+                    styles.actionArrow
+                  }
+                >
+                  →
+                </span>
+              </Link>
+
+              <Link
+                href="/admin/products"
+                className={styles.actionCard}
+              >
+                <div
+                  className={
+                    styles.actionIcon
+                  }
+                >
+                  📦
+                </div>
+
+                <div>
+                  <strong>
+                    Manage Products
+                  </strong>
+
+                  <span>
+                    Manage products
+                    and inventory.
+                  </span>
+                </div>
+
+                <span
+                  className={
+                    styles.actionArrow
+                  }
+                >
+                  →
+                </span>
+              </Link>
+
+              <Link
+                href="/admin/customers"
+                className={styles.actionCard}
+              >
+                <div
+                  className={
+                    styles.actionIcon
+                  }
+                >
+                  👥
+                </div>
+
+                <div>
+                  <strong>
+                    Customers
+                  </strong>
+
+                  <span>
+                    View registered
+                    customers.
+                  </span>
+                </div>
+
+                <span
+                  className={
+                    styles.actionArrow
+                  }
+                >
+                  →
+                </span>
+              </Link>
+
+              <Link
+                href="/admin/messages"
+                className={styles.actionCard}
+              >
+                <div
+                  className={
+                    styles.actionIcon
+                  }
+                >
+                  💬
+                </div>
+
+                <div>
+                  <strong>
+                    Messages
+                  </strong>
+
+                  <span>
+                    View customer
+                    messages.
+                  </span>
+                </div>
+
+                <span
+                  className={
+                    styles.actionArrow
+                  }
+                >
+                  →
+                </span>
+              </Link>
+            </div>
           </div>
-
-
-          <div className="admin-actions">
-
-            <a
-              href="/admin/orders"
-              className="admin-action"
-            >
-
-              <span>
-                🛒
-              </span>
-
-              <div>
-
-                <strong>
-                  Manage Orders
-                </strong>
-
-                <p>
-                  View and update customer
-                  orders.
-                </p>
-
-              </div>
-
-            </a>
-
-
-            <a
-              href="/admin/products"
-              className="admin-action"
-            >
-
-              <span>
-                📦
-              </span>
-
-              <div>
-
-                <strong>
-                  Manage Products
-                </strong>
-
-                <p>
-                  Manage products and inventory.
-                </p>
-
-              </div>
-
-            </a>
-
-
-            <a
-              href="/admin/customers"
-              className="admin-action"
-            >
-
-              <span>
-                👥
-              </span>
-
-              <div>
-
-                <strong>
-                  Customers
-                </strong>
-
-                <p>
-                  View registered customers.
-                </p>
-
-              </div>
-
-            </a>
-
-
-            <a
-              href="/admin/messages"
-              className="admin-action"
-            >
-
-              <span>
-                💬
-              </span>
-
-              <div>
-
-                <strong>
-                  Messages
-                </strong>
-
-                <p>
-                  View customer messages.
-                </p>
-
-              </div>
-
-            </a>
-
-          </div>
-
         </div>
-
       </section>
-
-    </div>
+    </main>
   );
 }
