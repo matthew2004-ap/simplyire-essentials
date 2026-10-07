@@ -47,44 +47,48 @@ function formatDate(date: string) {
   }).format(new Date(date));
 }
 
+function shortOrderId(id: string) {
+  return `#${id.slice(-8).toUpperCase()}`;
+}
+
 function getPaymentClass(status: string) {
   switch (status.toUpperCase()) {
     case "PAID":
-      return "admin-status admin-status-paid";
+      return "order-badge order-badge-paid";
 
     case "PENDING":
-      return "admin-status admin-status-pending";
+      return "order-badge order-badge-pending";
 
     case "FAILED":
-      return "admin-status admin-status-cancelled";
+      return "order-badge order-badge-failed";
 
     case "REFUNDED":
-      return "admin-status admin-status-cancelled";
+      return "order-badge order-badge-refunded";
 
     default:
-      return "admin-status";
+      return "order-badge";
   }
 }
 
 function getFulfillmentClass(status: string) {
   switch (status.toUpperCase()) {
     case "PENDING":
-      return "admin-status admin-status-pending";
+      return "order-badge order-badge-pending";
 
     case "PROCESSING":
-      return "admin-status admin-status-processing";
+      return "order-badge order-badge-processing";
 
     case "SHIPPED":
-      return "admin-status admin-status-shipped";
+      return "order-badge order-badge-shipped";
 
     case "DELIVERED":
-      return "admin-status admin-status-delivered";
+      return "order-badge order-badge-delivered";
 
     case "CANCELLED":
-      return "admin-status admin-status-cancelled";
+      return "order-badge order-badge-cancelled";
 
     default:
-      return "admin-status";
+      return "order-badge";
   }
 }
 
@@ -92,7 +96,9 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("ALL");
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrder, setSelectedOrder] =
+    useState<Order | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -101,15 +107,19 @@ export default function AdminOrdersPage() {
       setLoading(true);
       setError("");
 
-      const response = await fetch("/api/admin/orders", {
-        cache: "no-store",
-      });
+      const response = await fetch(
+        "/api/admin/orders",
+        {
+          cache: "no-store",
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok || !data.success) {
         throw new Error(
-          data.message || "Failed to load orders."
+          data.message ||
+            "Failed to load orders."
         );
       }
 
@@ -130,253 +140,559 @@ export default function AdminOrdersPage() {
   }, []);
 
   const filteredOrders = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = search
+      .trim()
+      .toLowerCase();
 
     return orders.filter((order) => {
       const matchesSearch =
         !query ||
-        order.customer.toLowerCase().includes(query) ||
-        order.email.toLowerCase().includes(query) ||
-        order.id.toLowerCase().includes(query);
+        order.customer
+          .toLowerCase()
+          .includes(query) ||
+        order.email
+          .toLowerCase()
+          .includes(query) ||
+        order.id
+          .toLowerCase()
+          .includes(query);
 
       const matchesFilter =
         filter === "ALL" ||
         order.status === filter ||
-        order.fulfillmentStatus === filter;
+        order.fulfillmentStatus ===
+          filter;
 
-      return matchesSearch && matchesFilter;
+      return (
+        matchesSearch &&
+        matchesFilter
+      );
     });
   }, [orders, search, filter]);
 
+  const paidOrders = orders.filter(
+    (order) => order.status === "PAID"
+  ).length;
+
+  const pendingOrders = orders.filter(
+    (order) =>
+      order.fulfillmentStatus ===
+      "PENDING"
+  ).length;
+
+  const deliveredOrders =
+    orders.filter(
+      (order) =>
+        order.fulfillmentStatus ===
+        "DELIVERED"
+    ).length;
+
   return (
-    <div className="admin-page">
-      <section className="admin-header">
-        <div className="container">
-          <div className="admin-header-content">
-            <div>
-              <span className="eyebrow">
-                Administration
-              </span>
+    <>
+      <div className="orders-page">
+        {/* HEADER */}
+        <section className="orders-hero">
+          <div className="container">
+            <div className="orders-hero-content">
+              <div>
+                <span className="orders-eyebrow">
+                  Administration
+                </span>
 
-              <h1>Order Management</h1>
+                <h1>Order Management</h1>
 
-              <p>
-                View customer orders, payments and
-                fulfillment information.
-              </p>
-            </div>
-
-            <div className="admin-header-badge">
-              <span>{orders.length} ORDERS</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="section container">
-        <div className="admin-panel">
-          <div className="admin-panel-header">
-            <div>
-              <span className="eyebrow">Sales</span>
-              <h2>Customer Orders</h2>
-            </div>
-
-            <button
-              type="button"
-              className="admin-panel-link"
-              onClick={loadOrders}
-            >
-              Refresh ↻
-            </button>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "minmax(220px, 1fr) 180px",
-              gap: "12px",
-              marginBottom: "24px",
-            }}
-          >
-            <input
-              type="search"
-              placeholder="Search customer, email or order ID..."
-              value={search}
-              onChange={(event) =>
-                setSearch(event.target.value)
-              }
-              className="admin-search-input"
-            />
-
-            <select
-              value={filter}
-              onChange={(event) =>
-                setFilter(event.target.value)
-              }
-              className="admin-search-input"
-            >
-              <option value="ALL">
-                All Orders
-              </option>
-              <option value="PAID">
-                Paid
-              </option>
-              <option value="PENDING">
-                Pending
-              </option>
-              <option value="PROCESSING">
-                Processing
-              </option>
-              <option value="SHIPPED">
-                Shipped
-              </option>
-              <option value="DELIVERED">
-                Delivered
-              </option>
-              <option value="CANCELLED">
-                Cancelled
-              </option>
-            </select>
-          </div>
-
-          {loading ? (
-            <div className="admin-empty">
-              <span>⏳</span>
-              <h3>Loading orders...</h3>
-              <p>
-                Please wait while we retrieve the
-                latest orders.
-              </p>
-            </div>
-          ) : error ? (
-            <div className="admin-empty">
-              <span>⚠️</span>
-              <h3>Unable to load orders</h3>
-              <p>{error}</p>
+                <p>
+                  Manage customer orders,
+                  payments and fulfillment
+                  from one place.
+                </p>
+              </div>
 
               <button
                 type="button"
-                className="btn btn-primary"
+                className="orders-refresh"
                 onClick={loadOrders}
               >
-                Try Again
+                ↻ Refresh Orders
               </button>
             </div>
-          ) : filteredOrders.length === 0 ? (
-            <div className="admin-empty">
-              <span>🛒</span>
-              <h3>No matching orders</h3>
-              <p>
-                Try changing your search or filter.
-              </p>
+          </div>
+        </section>
+
+        {/* STATS */}
+        <section className="orders-stats-section">
+          <div className="container">
+            <div className="orders-stats">
+              <div className="orders-stat">
+                <div className="orders-stat-icon">
+                  🛒
+                </div>
+
+                <div>
+                  <span>Total Orders</span>
+                  <strong>
+                    {orders.length}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="orders-stat">
+                <div className="orders-stat-icon">
+                  💳
+                </div>
+
+                <div>
+                  <span>Paid Orders</span>
+                  <strong>
+                    {paidOrders}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="orders-stat">
+                <div className="orders-stat-icon">
+                  📦
+                </div>
+
+                <div>
+                  <span>Pending Fulfillment</span>
+                  <strong>
+                    {pendingOrders}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="orders-stat">
+                <div className="orders-stat-icon">
+                  ✓
+                </div>
+
+                <div>
+                  <span>Delivered</span>
+                  <strong>
+                    {deliveredOrders}
+                  </strong>
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="admin-table-wrapper">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Customer</th>
-                    <th>Total</th>
-                    <th>Payment</th>
-                    <th>Fulfillment</th>
-                    <th>Date</th>
-                    <th></th>
-                  </tr>
-                </thead>
+          </div>
+        </section>
 
-                <tbody>
-                  {filteredOrders.map((order) => (
-                    <tr key={order.id}>
-                      <td>
-                        <div className="admin-customer">
-                          <strong>
-                            {order.customer}
-                          </strong>
+        {/* ORDERS */}
+        <section className="orders-content">
+          <div className="container">
+            <div className="orders-panel">
+              {/* TOOLBAR */}
+              <div className="orders-toolbar">
+                <div>
+                  <h2>All Orders</h2>
 
-                          <span>
-                            {order.email}
-                          </span>
+                  <p>
+                    {filteredOrders.length}{" "}
+                    order
+                    {filteredOrders.length !==
+                    1
+                      ? "s"
+                      : ""}{" "}
+                    found
+                  </p>
+                </div>
+
+                <div className="orders-filters">
+                  <div className="orders-search">
+                    <span>⌕</span>
+
+                    <input
+                      type="search"
+                      placeholder="Search orders..."
+                      value={search}
+                      onChange={(event) =>
+                        setSearch(
+                          event.target.value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <select
+                    value={filter}
+                    onChange={(event) =>
+                      setFilter(
+                        event.target.value
+                      )
+                    }
+                    className="orders-select"
+                  >
+                    <option value="ALL">
+                      All orders
+                    </option>
+
+                    <option value="PAID">
+                      Paid
+                    </option>
+
+                    <option value="PENDING">
+                      Pending
+                    </option>
+
+                    <option value="PROCESSING">
+                      Processing
+                    </option>
+
+                    <option value="SHIPPED">
+                      Shipped
+                    </option>
+
+                    <option value="DELIVERED">
+                      Delivered
+                    </option>
+
+                    <option value="CANCELLED">
+                      Cancelled
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              {/* LOADING */}
+              {loading && (
+                <div className="orders-empty">
+                  <div className="orders-loader">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+
+                  <h3>
+                    Loading orders...
+                  </h3>
+
+                  <p>
+                    Getting the latest
+                    customer orders.
+                  </p>
+                </div>
+              )}
+
+              {/* ERROR */}
+              {!loading && error && (
+                <div className="orders-empty">
+                  <div className="orders-empty-icon">
+                    ⚠️
+                  </div>
+
+                  <h3>
+                    Unable to load orders
+                  </h3>
+
+                  <p>{error}</p>
+
+                  <button
+                    type="button"
+                    className="orders-retry"
+                    onClick={loadOrders}
+                  >
+                    Try Again
+                  </button>
+                </div>
+              )}
+
+              {/* EMPTY */}
+              {!loading &&
+                !error &&
+                filteredOrders.length ===
+                  0 && (
+                  <div className="orders-empty">
+                    <div className="orders-empty-icon">
+                      🛍️
+                    </div>
+
+                    <h3>
+                      No orders found
+                    </h3>
+
+                    <p>
+                      Try changing your
+                      search or filter.
+                    </p>
+                  </div>
+                )}
+
+              {/* DESKTOP TABLE */}
+              {!loading &&
+                !error &&
+                filteredOrders.length >
+                  0 && (
+                  <div className="orders-table-wrapper">
+                    <table className="orders-table">
+                      <thead>
+                        <tr>
+                          <th>Order</th>
+                          <th>Customer</th>
+                          <th>Total</th>
+                          <th>Payment</th>
+                          <th>Fulfillment</th>
+                          <th>Date</th>
+                          <th />
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {filteredOrders.map(
+                          (order) => (
+                            <tr
+                              key={order.id}
+                            >
+                              <td>
+                                <div className="order-id">
+                                  {shortOrderId(
+                                    order.id
+                                  )}
+                                </div>
+
+                                <div className="order-item-count">
+                                  {
+                                    order
+                                      .orderItems
+                                      .length
+                                  }{" "}
+                                  item
+                                  {order
+                                    .orderItems
+                                    .length !==
+                                  1
+                                    ? "s"
+                                    : ""}
+                                </div>
+                              </td>
+
+                              <td>
+                                <div className="order-customer">
+                                  <div className="customer-avatar">
+                                    {order.customer
+                                      .charAt(
+                                        0
+                                      )
+                                      .toUpperCase()}
+                                  </div>
+
+                                  <div>
+                                    <strong>
+                                      {
+                                        order.customer
+                                      }
+                                    </strong>
+
+                                    <span>
+                                      {
+                                        order.email
+                                      }
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+
+                              <td>
+                                <strong className="order-total">
+                                  {formatNaira(
+                                    order.total
+                                  )}
+                                </strong>
+                              </td>
+
+                              <td>
+                                <span
+                                  className={getPaymentClass(
+                                    order.status
+                                  )}
+                                >
+                                  <i />
+                                  {
+                                    order.status
+                                  }
+                                </span>
+                              </td>
+
+                              <td>
+                                <span
+                                  className={getFulfillmentClass(
+                                    order.fulfillmentStatus
+                                  )}
+                                >
+                                  <i />
+                                  {
+                                    order.fulfillmentStatus
+                                  }
+                                </span>
+                              </td>
+
+                              <td>
+                                <span className="order-date">
+                                  {formatDate(
+                                    order.createdAt
+                                  )}
+                                </span>
+                              </td>
+
+                              <td>
+                                <button
+                                  type="button"
+                                  className="order-view-button"
+                                  onClick={() =>
+                                    setSelectedOrder(
+                                      order
+                                    )
+                                  }
+                                >
+                                  View
+                                  <span>
+                                    →
+                                  </span>
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+              {/* MOBILE CARDS */}
+              {!loading &&
+                !error &&
+                filteredOrders.length >
+                  0 && (
+                  <div className="orders-mobile-list">
+                    {filteredOrders.map(
+                      (order) => (
+                        <div
+                          className="mobile-order-card"
+                          key={order.id}
+                        >
+                          <div className="mobile-order-top">
+                            <div>
+                              <strong>
+                                {shortOrderId(
+                                  order.id
+                                )}
+                              </strong>
+
+                              <span>
+                                {formatDate(
+                                  order.createdAt
+                                )}
+                              </span>
+                            </div>
+
+                            <strong>
+                              {formatNaira(
+                                order.total
+                              )}
+                            </strong>
+                          </div>
+
+                          <div className="mobile-order-customer">
+                            <div className="customer-avatar">
+                              {order.customer
+                                .charAt(0)
+                                .toUpperCase()}
+                            </div>
+
+                            <div>
+                              <strong>
+                                {
+                                  order.customer
+                                }
+                              </strong>
+
+                              <span>
+                                {
+                                  order.email
+                                }
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="mobile-order-status">
+                            <span
+                              className={getPaymentClass(
+                                order.status
+                              )}
+                            >
+                              <i />
+                              {
+                                order.status
+                              }
+                            </span>
+
+                            <span
+                              className={getFulfillmentClass(
+                                order.fulfillmentStatus
+                              )}
+                            >
+                              <i />
+                              {
+                                order.fulfillmentStatus
+                              }
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            className="mobile-order-view"
+                            onClick={() =>
+                              setSelectedOrder(
+                                order
+                              )
+                            }
+                          >
+                            View Order →
+                          </button>
                         </div>
-                      </td>
-
-                      <td>
-                        <strong>
-                          {formatNaira(order.total)}
-                        </strong>
-                      </td>
-
-                      <td>
-                        <span
-                          className={getPaymentClass(
-                            order.status
-                          )}
-                        >
-                          {order.status}
-                        </span>
-                      </td>
-
-                      <td>
-                        <span
-                          className={getFulfillmentClass(
-                            order.fulfillmentStatus
-                          )}
-                        >
-                          {order.fulfillmentStatus}
-                        </span>
-                      </td>
-
-                      <td>
-                        {formatDate(order.createdAt)}
-                      </td>
-
-                      <td>
-                        <button
-                          type="button"
-                          className="admin-panel-link"
-                          onClick={() =>
-                            setSelectedOrder(order)
-                          }
-                        >
-                          View →
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      )
+                    )}
+                  </div>
+                )}
             </div>
-          )}
-        </div>
-      </section>
+          </div>
+        </section>
+      </div>
 
+      {/* ORDER MODAL */}
       {selectedOrder && (
         <div
-          className="admin-modal-overlay"
+          className="order-modal-backdrop"
           onClick={() =>
             setSelectedOrder(null)
           }
         >
           <div
-            className="admin-modal"
+            className="order-modal"
             onClick={(event) =>
               event.stopPropagation()
             }
           >
-            <div className="admin-modal-header">
+            <div className="order-modal-header">
               <div>
-                <span className="eyebrow">
-                  Order Details
+                <span>
+                  {shortOrderId(
+                    selectedOrder.id
+                  )}
                 </span>
 
-                <h2>
-                  {selectedOrder.customer}
-                </h2>
+                <h2>Order Details</h2>
+
+                <p>
+                  {formatDate(
+                    selectedOrder.createdAt
+                  )}
+                </p>
               </div>
 
               <button
                 type="button"
-                className="admin-modal-close"
+                className="order-modal-close"
                 onClick={() =>
                   setSelectedOrder(null)
                 }
@@ -385,96 +701,120 @@ export default function AdminOrdersPage() {
               </button>
             </div>
 
-            <div className="admin-order-details">
-              <div className="admin-order-info-grid">
-                <div>
-                  <span>Order ID</span>
-                  <strong>
-                    {selectedOrder.id}
-                  </strong>
+            <div className="order-modal-body">
+              {/* CUSTOMER */}
+              <div className="order-detail-section">
+                <div className="order-detail-heading">
+                  <span>👤</span>
+                  <div>
+                    <h3>
+                      Customer Information
+                    </h3>
+                    <p>
+                      Customer details
+                    </p>
+                  </div>
                 </div>
 
-                <div>
-                  <span>Customer</span>
-                  <strong>
-                    {selectedOrder.customer}
-                  </strong>
-                </div>
+                <div className="customer-detail-card">
+                  <div className="customer-avatar large">
+                    {selectedOrder.customer
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
 
-                <div>
-                  <span>Email</span>
-                  <strong>
-                    {selectedOrder.email}
-                  </strong>
-                </div>
+                  <div>
+                    <strong>
+                      {
+                        selectedOrder.customer
+                      }
+                    </strong>
 
-                <div>
-                  <span>Phone</span>
-                  <strong>
-                    {selectedOrder.phone}
-                  </strong>
-                </div>
+                    <span>
+                      {selectedOrder.email}
+                    </span>
 
-                <div>
-                  <span>Payment</span>
-                  <strong>
-                    {selectedOrder.status}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>Fulfillment</span>
-                  <strong>
-                    {selectedOrder.fulfillmentStatus}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>Total</span>
-                  <strong>
-                    {formatNaira(
-                      selectedOrder.total
-                    )}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>Order Date</span>
-                  <strong>
-                    {formatDate(
-                      selectedOrder.createdAt
-                    )}
-                  </strong>
+                    <span>
+                      {selectedOrder.phone}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div className="admin-order-address">
-                <span>Delivery Address</span>
-                <strong>
-                  {selectedOrder.address}
-                </strong>
+              {/* ADDRESS */}
+              <div className="order-detail-section">
+                <div className="order-detail-heading">
+                  <span>📍</span>
+
+                  <div>
+                    <h3>
+                      Delivery Address
+                    </h3>
+
+                    <p>
+                      Where the order should
+                      be delivered
+                    </p>
+                  </div>
+                </div>
+
+                <div className="order-address-card">
+                  {
+                    selectedOrder.address
+                  }
+                </div>
               </div>
 
-              <div>
-                <span className="eyebrow">
-                  Products
-                </span>
+              {/* PRODUCTS */}
+              <div className="order-detail-section">
+                <div className="order-detail-heading">
+                  <span>🛍️</span>
 
-                <div className="admin-order-items">
+                  <div>
+                    <h3>
+                      Ordered Products
+                    </h3>
+
+                    <p>
+                      {
+                        selectedOrder
+                          .orderItems
+                          .length
+                      }{" "}
+                      product
+                      {selectedOrder
+                        .orderItems
+                        .length !== 1
+                        ? "s"
+                        : ""}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="order-products">
                   {selectedOrder.orderItems.map(
                     (item) => (
                       <div
-                        className="admin-order-item"
+                        className="order-product"
                         key={item.id}
                       >
                         <img
-                          src={item.product.image}
-                          alt={item.product.name}
+                          src={
+                            item.product
+                              .image
+                          }
+                          alt={
+                            item.product
+                              .name
+                          }
                         />
 
-                        <div>
+                        <div className="order-product-info">
                           <strong>
-                            {item.product.name}
+                            {
+                              item.product
+                                .name
+                            }
                           </strong>
 
                           <span>
@@ -497,32 +837,108 @@ export default function AdminOrdersPage() {
                 </div>
               </div>
 
-              {selectedOrder.paymentReference && (
-                <div className="admin-order-payment">
-                  <span>
-                    Payment Reference
-                  </span>
+              {/* PAYMENT */}
+              <div className="order-detail-section">
+                <div className="order-detail-heading">
+                  <span>💳</span>
 
-                  <strong>
-                    {
-                      selectedOrder.paymentReference
-                    }
-                  </strong>
+                  <div>
+                    <h3>
+                      Payment Information
+                    </h3>
+
+                    <p>
+                      Payment and order
+                      information
+                    </p>
+                  </div>
+                </div>
+
+                <div className="payment-detail-card">
+                  <div>
+                    <span>
+                      Payment Status
+                    </span>
+
+                    <strong>
+                      <span
+                        className={getPaymentClass(
+                          selectedOrder.status
+                        )}
+                      >
+                        <i />
+                        {
+                          selectedOrder.status
+                        }
+                      </span>
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>
+                      Fulfillment
+                    </span>
+
+                    <strong>
+                      <span
+                        className={getFulfillmentClass(
+                          selectedOrder.fulfillmentStatus
+                        )}
+                      >
+                        <i />
+                        {
+                          selectedOrder.fulfillmentStatus
+                        }
+                      </span>
+                    </strong>
+                  </div>
 
                   {selectedOrder.paymentChannel && (
-                    <small>
-                      Channel:{" "}
-                      {
-                        selectedOrder.paymentChannel
-                      }
-                    </small>
+                    <div>
+                      <span>
+                        Payment Channel
+                      </span>
+
+                      <strong>
+                        {
+                          selectedOrder.paymentChannel
+                        }
+                      </strong>
+                    </div>
+                  )}
+
+                  {selectedOrder.paymentReference && (
+                    <div>
+                      <span>
+                        Reference
+                      </span>
+
+                      <strong>
+                        {
+                          selectedOrder.paymentReference
+                        }
+                      </strong>
+                    </div>
                   )}
                 </div>
-              )}
+              </div>
+
+              {/* TOTAL */}
+              <div className="order-grand-total">
+                <span>
+                  Order Total
+                </span>
+
+                <strong>
+                  {formatNaira(
+                    selectedOrder.total
+                  )}
+                </strong>
+              </div>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
