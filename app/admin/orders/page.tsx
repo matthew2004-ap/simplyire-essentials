@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import FulfillmentStatusSelect from "./FulfillmentStatusSelect";
 
 type OrderItem = {
   id: string;
@@ -101,6 +102,33 @@ export default function AdminOrdersPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  function handleFulfillmentUpdated(
+    orderId: string,
+    status: string
+  ) {
+    setOrders((currentOrders) =>
+      currentOrders.map((order) =>
+        order.id === orderId
+          ? {
+              ...order,
+              fulfillmentStatus:
+                status,
+            }
+          : order
+      )
+    );
+
+    setSelectedOrder((currentOrder) =>
+      currentOrder?.id === orderId
+        ? {
+            ...currentOrder,
+            fulfillmentStatus:
+              status,
+          }
+        : currentOrder
+    );
+  }
 
   async function loadOrders() {
     try {
@@ -514,16 +542,14 @@ export default function AdminOrdersPage() {
                               </td>
 
                               <td>
-                                <span
-                                  className={getFulfillmentClass(
-                                    order.fulfillmentStatus
-                                  )}
-                                >
-                                  <i />
-                                  {
-                                    order.fulfillmentStatus
+                                <FulfillmentStatusSelect
+                                  orderId={order.id}
+                                  value={order.fulfillmentStatus}
+                                  paymentStatus={order.status}
+                                  onUpdated={
+                                    handleFulfillmentUpdated
                                   }
-                                </span>
+                                />
                               </td>
 
                               <td>
@@ -626,16 +652,14 @@ export default function AdminOrdersPage() {
                               }
                             </span>
 
-                            <span
-                              className={getFulfillmentClass(
-                                order.fulfillmentStatus
-                              )}
-                            >
-                              <i />
-                              {
-                                order.fulfillmentStatus
+                            <FulfillmentStatusSelect
+                              orderId={order.id}
+                              value={order.fulfillmentStatus}
+                              paymentStatus={order.status}
+                              onUpdated={
+                                handleFulfillmentUpdated
                               }
-                            </span>
+                            />
                           </div>
 
                           <button
@@ -880,16 +904,18 @@ export default function AdminOrdersPage() {
                     </span>
 
                     <strong>
-                      <span
-                        className={getFulfillmentClass(
-                          selectedOrder.fulfillmentStatus
-                        )}
-                      >
-                        <i />
-                        {
+                      <FulfillmentStatusSelect
+                        orderId={selectedOrder.id}
+                        value={
                           selectedOrder.fulfillmentStatus
                         }
-                      </span>
+                        paymentStatus={
+                          selectedOrder.status
+                        }
+                        onUpdated={
+                          handleFulfillmentUpdated
+                        }
+                      />
                     </strong>
                   </div>
 
