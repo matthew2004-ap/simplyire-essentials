@@ -29,15 +29,37 @@ export async function settlePaidOrder(
       }
 
       /*
-        Already completed.
-        This makes the operation idempotent.
+        A released reservation must never be
+        converted back into a paid order.
       */
-      if (order.status === "PAID") {
+      if (
+        order.inventoryStatus ===
+        "RELEASED"
+      ) {
+        throw new Error(
+          "This order's inventory reservation has already been released."
+        );
+      }
+
+      /*
+        Fully settled order.
+        This makes repeated webhook/callback
+        processing safe.
+      */
+      if (
+        order.status === "PAID" &&
+        order.inventoryStatus ===
+          "COMMITTED"
+      ) {
         return order;
       }
 
       /*
         New reservation-based orders.
+
+        Move:
+          stock        -> stock - quantity
+          reservedStock -> reservedStock - quantity
       */
       if (
         order.inventoryStatus ===
@@ -48,8 +70,10 @@ export async function settlePaidOrder(
             await tx.$executeRaw`
               UPDATE "Product"
               SET
-                "stock" = "stock" - ${item.quantity},
-                "reservedStock" = "reservedStock" - ${item.quantity},
+                "stock" =
+                  "stock" - ${item.quantity},
+                "reservedStock" =
+                  "reservedStock" - ${item.quantity},
                 "updatedAt" = NOW()
               WHERE
                 "id" = ${item.productId}
@@ -68,7 +92,7 @@ export async function settlePaidOrder(
       /*
         Legacy orders have inventoryStatus = NONE.
         Their stock was already reduced by the
-        previous system, so do not reduce it again.
+        old system, so don't reduce it again.
       */
 
       const updatedOrder =
@@ -76,12 +100,16 @@ export async function settlePaidOrder(
           where: {
             id: order.id,
           },
+
           data: {
             status: "PAID",
+
             paymentReference:
               payment.reference,
+
             paymentChannel:
               payment.channel ?? null,
+
             paidAt: payment.paidAt
               ? new Date(payment.paidAt)
               : new Date(),
@@ -92,8 +120,10 @@ export async function settlePaidOrder(
                 ? "COMMITTED"
                 : order.inventoryStatus,
 
-            reservationExpiresAt: null,
+            reservationExpiresAt:
+              null,
           },
+
           include: {
             orderItems: true,
           },
@@ -130,10 +160,7 @@ export async function releaseOrderReservation(
       }
 
       /*
-        Nothing to release for:
-        - old orders
-        - already paid orders
-        - already released orders
+        Only RESERVED inventory can be released.
       */
       if (
         order.inventoryStatus !==
@@ -142,6 +169,9 @@ export async function releaseOrderReservation(
         return order;
       }
 
+      /*
+        Never release inventory from a paid order.
+      */
       if (order.status === "PAID") {
         return order;
       }
@@ -151,7 +181,8 @@ export async function releaseOrderReservation(
           await tx.$executeRaw`
             UPDATE "Product"
             SET
-              "reservedStock" = "reservedStock" - ${item.quantity},
+              "reservedStock" =
+                "reservedStock" - ${item.quantity},
               "updatedAt" = NOW()
             WHERE
               "id" = ${item.productId}
@@ -169,13 +200,17 @@ export async function releaseOrderReservation(
         where: {
           id: order.id,
         },
+
         data: {
           status: "FAILED",
+
           inventoryStatus:
             "RELEASED",
+
           reservationExpiresAt:
             null,
         },
+
         include: {
           orderItems: true,
         },
