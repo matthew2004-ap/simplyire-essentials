@@ -90,6 +90,9 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    const reservationExpiresAt = new Date(
+  Date.now() + 30 * 60 * 1000
+);
 
     // --------------------------------------------------
     // 4. CREATE ORDER INSIDE A TRANSACTION
@@ -165,16 +168,22 @@ export async function POST(request: Request) {
         // 8. CREATE ORDER
         // --------------------------------------------------
 
-       const createdOrder = await tx.order.create({
-     data: {
-    customer: customer.trim(),
-    email: email.trim(),
-    phone: phone.trim(),
-    address: address.trim(),
-    status: "PENDING",
-    fulfillmentStatus: "PENDING",
-    total,
-    userId: session?.userId ?? null,
+        const createdOrder = await tx.order.create({
+          data: {
+            customer: customer.trim(),
+            email: email.trim(),
+            phone: phone.trim(),
+            address: address.trim(),
+
+            status: "PENDING",
+            fulfillmentStatus: "PENDING",
+
+            total,
+
+            userId: session?.userId ?? null,
+
+            inventoryStatus: "RESERVED",
+            reservationExpiresAt,
 
             orderItems: {
               create: orderItems,
@@ -186,28 +195,27 @@ export async function POST(request: Request) {
         });
 
         // --------------------------------------------------
-        // 9. REDUCE STOCK
+        // 9. RESERVE STOCK
         // --------------------------------------------------
 
         for (const item of items) {
           const result =
-            await tx.product.updateMany({
-              where: {
-                id: item.productId,
-                stock: {
-                  gte: item.quantity,
-                },
-              },
-              data: {
-                stock: {
-                  decrement: item.quantity,
-                },
-              },
-            });
+            await tx.$executeRaw`
+              UPDATE "Product"
+              SET
+                "reservedStock" =
+                  "reservedStock" + ${item.quantity},
+                "updatedAt" = NOW()
+              WHERE
+                "id" = ${item.productId}
+                AND
+                "stock" - "reservedStock"
+                  >= ${item.quantity}
+            `;
 
-          if (result.count !== 1) {
+          if (result !== 1) {
             throw new Error(
-              "Stock changed while placing the order. Please try again."
+              "Not enough available stock. Please reduce the quantity and try again."
             );
           }
         }

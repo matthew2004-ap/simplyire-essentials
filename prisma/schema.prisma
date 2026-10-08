@@ -32,7 +32,8 @@ model Product {
   price       Int
   image       String
   featured    Boolean     @default(false)
-  stock       Int         @default(0)
+  stock         Int @default(0)
+reservedStock Int @default(0)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   orderItems  OrderItem[]
@@ -57,7 +58,8 @@ model Order {
   paymentReference String?
   paymentChannel   String?
   paidAt           DateTime?
-
+  inventoryStatus     String   @default("NONE")
+  reservationExpiresAt DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

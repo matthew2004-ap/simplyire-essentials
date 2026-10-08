@@ -853,6 +853,7 @@ export const ProductScalarFieldEnum = {
   image: 'image',
   featured: 'featured',
   stock: 'stock',
+  reservedStock: 'reservedStock',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -873,6 +874,8 @@ export const OrderScalarFieldEnum = {
   paymentReference: 'paymentReference',
   paymentChannel: 'paymentChannel',
   paidAt: 'paidAt',
+  inventoryStatus: 'inventoryStatus',
+  reservationExpiresAt: 'reservationExpiresAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
