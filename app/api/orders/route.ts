@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth";
 
 type OrderItemInput = {
   productId: string;
@@ -25,6 +26,8 @@ export async function POST(request: Request) {
       address,
       items,
     } = body;
+
+    const session = await getSession();
 
     // --------------------------------------------------
     // 1. BASIC VALIDATION
@@ -162,14 +165,16 @@ export async function POST(request: Request) {
         // 8. CREATE ORDER
         // --------------------------------------------------
 
-        const createdOrder = await tx.order.create({
-          data: {
-            customer: customer.trim(),
-            email: email.trim(),
-            phone: phone.trim(),
-            address: address.trim(),
-            status: "PENDING",
-            total,
+       const createdOrder = await tx.order.create({
+     data: {
+    customer: customer.trim(),
+    email: email.trim(),
+    phone: phone.trim(),
+    address: address.trim(),
+    status: "PENDING",
+    fulfillmentStatus: "PENDING",
+    total,
+    userId: session?.userId ?? null,
 
             orderItems: {
               create: orderItems,
