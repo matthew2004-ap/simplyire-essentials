@@ -1,48 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { formatNaira } from "@/lib/utils";
 
-type PaymentResult = {
-  success: boolean;
-  paid?: boolean;
-  status?: string;
-  message: string;
-
-  order?: {
-    id: string;
-    total: number;
-    status: string;
-  };
+type VerifiedOrder = {
+  id: string;
+  total: number;
+  status: string;
 };
 
 export default function PaymentCallbackPage() {
-  const [result, setResult] =
-    useState<PaymentResult | null>(null);
+  const [message, setMessage] = useState(
+    "Verifying your payment..."
+  );
 
-  const [loading, setLoading] =
-    useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     async function verifyPayment() {
       try {
-        const params =
-          new URLSearchParams(
-            window.location.search
-          );
+        const params = new URLSearchParams(
+          window.location.search
+        );
 
         const reference =
-          params.get("reference");
+          params.get("reference") ||
+          params.get("trxref");
 
         if (!reference) {
-          setResult({
-            success: false,
-            message:
-              "No payment reference was provided.",
-          });
-
-          return;
+          throw new Error(
+            "Payment reference was not found."
+          );
         }
 
         const response = await fetch(
@@ -54,186 +41,203 @@ export default function PaymentCallbackPage() {
           }
         );
 
-        const data =
-          await response.json();
+        const data = await response.json();
 
-        setResult(data);
-
-        if (data.success && data.paid) {
-          sessionStorage.setItem(
-            "simplyire-payment-success",
-            "true"
+        if (
+          !response.ok ||
+          !data.success ||
+          !data.paid ||
+          !data.order
+        ) {
+          throw new Error(
+            data.message ||
+              "Payment could not be verified."
           );
         }
+
+        const order =
+          data.order as VerifiedOrder;
+
+        /*
+          Clear the cart ONLY after the server
+          has confirmed that Paystack payment
+          was successful.
+        */
+        localStorage.removeItem(
+          "simplyire-cart"
+        );
+
+        /*
+          Save the verified order so the
+          order-success page can display it.
+        */
+        sessionStorage.setItem(
+          "simplyire-last-order",
+          JSON.stringify({
+            id: order.id,
+            total: order.total,
+            status: order.status,
+            paymentReference:
+              data.payment?.reference ??
+              reference,
+          })
+        );
+
+        sessionStorage.setItem(
+          "simplyire-payment-verified",
+          "true"
+        );
+
+        setMessage(
+          "Payment confirmed. Taking you to your order..."
+        );
+
+        /*
+          Force a full page load so the CartProvider
+          starts again with the now-empty cart.
+        */
+        window.location.replace(
+          "/order-success"
+        );
       } catch (error) {
         console.error(
           "Payment callback error:",
           error
         );
 
-        setResult({
-          success: false,
-          message:
-            "We could not verify your payment.",
-        });
-      } finally {
-        setLoading(false);
+        setError(true);
+
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "We could not verify your payment."
+        );
       }
     }
 
     verifyPayment();
   }, []);
 
-  // -------------------------------
-  // VERIFYING PAYMENT
-  // -------------------------------
-
-  if (loading) {
-    return (
-      <div className="page">
-        <section className="section container">
-          <div className="order-success">
-            <div className="success-icon">
-              ...
+  return (
+    <main
+      style={{
+        minHeight: "70vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "40px 20px",
+        background: "#fff9fb",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "520px",
+          padding: "36px",
+          border: "1px solid #eedde4",
+          borderRadius: "22px",
+          background: "#ffffff",
+          textAlign: "center",
+          boxShadow:
+            "0 15px 45px rgba(88, 40, 59, 0.08)",
+        }}
+      >
+        {!error ? (
+          <>
+            <div
+              style={{
+                width: "58px",
+                height: "58px",
+                margin: "0 auto 18px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "50%",
+                background: "#fff0f5",
+                fontSize: "25px",
+              }}
+            >
+              ⏳
             </div>
 
-            <span className="eyebrow">
-              Payment
-            </span>
-
-            <h1>
-              Verifying your payment...
+            <h1
+              style={{
+                margin: 0,
+                color: "#3b2932",
+                fontSize: "25px",
+              }}
+            >
+              Verifying Payment
             </h1>
-
-            <p>
-              Please wait while we confirm
-              your transaction.
-            </p>
-          </div>
-        </section>
-      </div>
-    );
-  }
-
-  // -------------------------------
-  // PAYMENT FAILED
-  // -------------------------------
-
-  if (!result?.success || !result.paid) {
-    return (
-      <div className="page">
-        <section className="section container">
-          <div className="order-success">
-            <div className="success-icon">
+          </>
+        ) : (
+          <>
+            <div
+              style={{
+                width: "58px",
+                height: "58px",
+                margin: "0 auto 18px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "50%",
+                background: "#fff0f1",
+                color: "#bd5661",
+                fontSize: "25px",
+              }}
+            >
               !
             </div>
 
-            <span className="eyebrow">
-              Payment
-            </span>
-
-            <h1>
-              Payment not confirmed
+            <h1
+              style={{
+                margin: 0,
+                color: "#3b2932",
+                fontSize: "25px",
+              }}
+            >
+              Payment Verification
             </h1>
+          </>
+        )}
 
-            <p>
-              {result?.message ||
-                "Your payment could not be confirmed."}
-            </p>
+        <p
+          style={{
+            marginTop: "12px",
+            color: "#907b84",
+            lineHeight: 1.6,
+            fontSize: "14px",
+          }}
+        >
+          {message}
+        </p>
 
-            <div className="order-success-actions">
-              <Link
-                href="/cart"
-                className="btn btn-primary"
-              >
-                Return to Cart
-              </Link>
-
-              <Link
-                href="/"
-                className="btn btn-secondary"
-              >
-                Back Home
-              </Link>
-            </div>
+        {error && (
+          <div
+            style={{
+              marginTop: "20px",
+            }}
+          >
+            <a
+              href="/contact"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "10px",
+                background: "#c66686",
+                padding: "11px 17px",
+                color: "#fff",
+                fontSize: "12px",
+                fontWeight: 800,
+                textDecoration: "none",
+              }}
+            >
+              Contact Simplyire
+            </a>
           </div>
-        </section>
+        )}
       </div>
-    );
-  }
-
-  // -------------------------------
-  // PAYMENT SUCCESSFUL
-  // -------------------------------
-
-  return (
-    <div className="page">
-      <section className="section container">
-        <div className="order-success">
-          <div className="success-icon">
-            ✓
-          </div>
-
-          <span className="eyebrow">
-            Payment successful
-          </span>
-
-          <h1>
-            Thank you for your order! 💗
-          </h1>
-
-          <p>
-            Your payment has been verified and
-            your order is now confirmed.
-          </p>
-
-          {result.order && (
-            <div className="order-success-card">
-              <div>
-                <span>Order number</span>
-
-                <strong>
-                  {result.order.id}
-                </strong>
-              </div>
-
-              <div>
-                <span>Total paid</span>
-
-                <strong>
-                  {formatNaira(
-                    result.order.total
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>Status</span>
-
-                <strong>
-                  PAID
-                </strong>
-              </div>
-            </div>
-          )}
-
-          <div className="order-success-actions">
-            <Link
-              href="/shop"
-              className="btn btn-primary"
-            >
-              Continue Shopping
-            </Link>
-
-            <Link
-              href="/"
-              className="btn btn-secondary"
-            >
-              Back Home
-            </Link>
-          </div>
-        </div>
-      </section>
-    </div>
+    </main>
   );
 }
